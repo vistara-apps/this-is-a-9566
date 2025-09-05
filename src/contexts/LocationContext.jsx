@@ -24,6 +24,37 @@ const stateAbbreviations = {
   'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
 }
 
+// Reverse geocoding function using a free geocoding service
+const reverseGeocode = async (latitude, longitude) => {
+  try {
+    // Using OpenStreetMap Nominatim (free service)
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'MiraID-App/1.0'
+        }
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error('Geocoding service unavailable')
+    }
+    
+    const data = await response.json()
+    const state = data.address?.state
+    
+    if (!state) {
+      throw new Error('State not found in location data')
+    }
+    
+    return state
+  } catch (error) {
+    console.error('Reverse geocoding error:', error)
+    throw error
+  }
+}
+
 export const LocationProvider = ({ children }) => {
   const [location, setLocation] = useState(null)
   const [state, setState] = useState(null)
@@ -46,13 +77,15 @@ export const LocationProvider = ({ children }) => {
         setLocation({ latitude, longitude })
         
         try {
-          // Mock reverse geocoding - in real app, use a geocoding service
-          const mockState = 'California' // Default for demo
-          setState(mockState)
-          toast.success(`Location detected: ${mockState}`)
+          // Use reverse geocoding to get state from coordinates
+          const state = await reverseGeocode(latitude, longitude)
+          setState(state)
+          toast.success(`Location detected: ${state}`)
         } catch (err) {
           setError('Failed to determine state from location')
           toast.error('Failed to determine your state')
+          // Fallback to manual state selection
+          setState(null)
         }
         setLoading(false)
       },

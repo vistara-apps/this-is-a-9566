@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { supabase, signUp as supabaseSignUp, signIn as supabaseSignIn, signOut as supabaseSignOut, updateUserProfile } from '../lib/supabase.js'
 
 const AuthContext = createContext()
 
@@ -15,51 +16,51 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing user session
-    const userData = localStorage.getItem('miraid_user')
-    if (userData) {
-      setUser(JSON.parse(userData))
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        setUser(session.user)
+      }
+      setLoading(false)
     }
-    setLoading(false)
+
+    getInitialSession()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setUser(session.user)
+        } else {
+          setUser(null)
+        }
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const signUp = async (email, password) => {
-    // Mock sign up - in real app, use Supabase
-    const newUser = {
-      id: Date.now().toString(),
-      email,
-      subscriptionStatus: 'free',
-      preferredLanguage: 'en',
-      createdAt: new Date().toISOString()
-    }
-    setUser(newUser)
-    localStorage.setItem('miraid_user', JSON.stringify(newUser))
-    return newUser
+    const { user } = await supabaseSignUp(email, password)
+    return user
   }
 
   const signIn = async (email, password) => {
-    // Mock sign in - in real app, use Supabase
-    const mockUser = {
-      id: Date.now().toString(),
-      email,
-      subscriptionStatus: 'free',
-      preferredLanguage: 'en',
-      createdAt: new Date().toISOString()
-    }
-    setUser(mockUser)
-    localStorage.setItem('miraid_user', JSON.stringify(mockUser))
-    return mockUser
+    const { user } = await supabaseSignIn(email, password)
+    return user
   }
 
-  const signOut = () => {
+  const signOut = async () => {
+    await supabaseSignOut()
     setUser(null)
-    localStorage.removeItem('miraid_user')
   }
 
-  const updateProfile = (updates) => {
-    const updatedUser = { ...user, ...updates }
+  const updateProfile = async (updates) => {
+    const { user: updatedUser } = await updateUserProfile(updates)
     setUser(updatedUser)
-    localStorage.setItem('miraid_user', JSON.stringify(updatedUser))
+    return updatedUser
   }
 
   const value = {
